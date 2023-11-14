@@ -1,0 +1,78 @@
+version: '2'
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+        - "80:80"
+        - "443:443"
+    volumes:
+        - ../terminal/dist/spa:/var/www/terminal
+        - ../logs:/var/log/nginx
+        - /usr/local/var/www/upload/:/var/www/uploaded
+        - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+        - ./nginx/certs:/etc/nginx/certs
+        - ./nginx/hosts:/etc/nginx/conf.d
+        
+    restart: unless-stopped
+    network_mode: "host"
+
+  mongodb:
+    image: mongo:4.2.2
+    container_name: mongodb
+    volumes:
+      - /root/mongo:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
+    ports:
+      - 0.0.0.0:27017:27017
+    environment:
+      # provide your credentials here
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=<changepassword>
+
+
+
+  storage:
+    build: ./storage
+    container_name: storage
+    restart: unless-stopped
+    volumes:
+      - /usr/local/var/www/upload:/app/files/
+
+    ports:
+      - 127.0.0.1:4999:4999
+
+
+  registrator:
+    build: ../registrator
+    container_name: registrator
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=4010
+      - MONGOURI=mongodb://admin:<changepassword>@127.0.0.1:27017/registrator
+      - SECRET=TEST
+      - SENDGRID_API_KEY=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
+      - PROTOCOL=http://
+      - ENDPOINT=127.0.0.1:8888
+      - ENDPORT=8888
+      - CHAINID=66b08e1785f4df20b2302c6a482e669b31f159e1a37f083d9c9672a38e2f690c
+      - REG_ACCOUNT=registrator
+      - PARTNER_CONTRACT=part
+      - WIF=
+      - STAKE_CPU=0.1000 AXON
+      - STAKE_NET=0.1000 AXON
+      - RAM=16084
+      - ADMIN=dacom.dark.sun@gmail.com
+      - CALLBACK=https://intellect.run/api/confirm
+      - BLOCKCHAIN=intellect
+      - FROM_DOMAIN=intellect.run
+      - REG_CONTRACT=registrator
+      - BOT_SAVE_TG_BACKEND=http://127.0.0.1:2999/admin/web/users/save-eosname
+      - BOT_AUTH=<settokenhere>
+      - BOT_NAME=
+
+    ports:
+      - 127.0.0.1:4010:4010
+    network_mode: "host"
