@@ -1,6 +1,7 @@
+db = db.getSiblingDB('registrator');
 db.createUser({
   user: 'admin',
-  pwd: '<changepasswordhere>',
+  pwd: 'INTELLECT123INTELLECT123INTELLECT123',
   roles: [
     {
       role: 'readWrite',

@@ -23,7 +23,7 @@ services:
     environment:
       # provide your credentials here
       - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=INTELLECT!23INTELLECT!23INTELLECT!23
+      - MONGO_INITDB_ROOT_PASSWORD=INTELLECT123INTELLECT123INTELLECT123
 
 
 
@@ -45,7 +45,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4010
-      - MONGOURI=mongodb://admin:INTELLECT!23INTELLECT!23INTELLECT!23@127.0.0.1:27017/registrator
+      - MONGOURI=mongodb://admin:INTELLECT123INTELLECT123INTELLECT123@127.0.0.1:27017/registrator
       - SECRET=TEST
       - SENDGRID_API_KEY=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
       - PROTOCOL=http://
