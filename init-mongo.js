@@ -9,3 +9,15 @@ db.createUser({
     },
   ],
 });
+db = db.getSiblingDB('platform');
+db.createUser({
+  user: 'admin',
+  pwd: 'INTELLECT123INTELLECT123INTELLECT123PlaTFoRM',
+  roles: [
+    {
+      role: 'readWrite',
+      db: 'platform',
+    },
+  ],
+});
+
