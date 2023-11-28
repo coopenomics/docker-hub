@@ -18,12 +18,11 @@ services:
     volumes:
       - /root/mongo:/data/db
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js
-    ports:
-      - 0.0.0.0:27017:27017
     environment:
       # provide your credentials here
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=INTELLECT123INTELLECT123INTELLECT123
+    network_mode: "host"
 
 
 
@@ -54,12 +53,12 @@ services:
       - CHAINID=66b08e1785f4df20b2302c6a482e669b31f159e1a37f083d9c9672a38e2f690c
       - REG_ACCOUNT=registrator
       - PARTNER_CONTRACT=part
-      - WIF=
+      - WIF=5JoNYmWXTUUPd17Q5YuHBnzb9AsoPFrZftC1eSpTtt56UGzkgLS
       - STAKE_CPU=0.1000 AXON
       - STAKE_NET=0.1000 AXON
       - RAM=16084
       - ADMIN=dacom.dark.sun@gmail.com
-      - CALLBACK=https://intellect.run/api/confirm
+      - CALLBACK=https://test.intellect.run/api/confirm
       - BLOCKCHAIN=intellect
       - FROM_DOMAIN=intellect.run
       - REG_CONTRACT=registrator
@@ -67,5 +66,4 @@ services:
       - BOT_AUTH=<settokenhere>
       - BOT_NAME=
 
-    ports:
-      - 127.0.0.1:4010:4010
+    network_mode: "host"
