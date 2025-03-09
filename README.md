@@ -1,12 +1,34 @@
+# 🚀 CoopOS Docker Builder (Multi-Arch)
+
+Этот репозиторий содержит **мульти-архитектурный контейнер** для сборки **CoopOS Blockchain** и **CDT**.
+Контейнер поддерживает запуск на **Linux (AMD64, ARM64), macOS (Intel & M1/M2), Windows (WSL), Raspberry Pi 5**.
+
+---
+
+## 🔹 Инструкция по сборке
+
+**Перед сборкой заменить теги в `install.sh`**.
+
+**Запустить сборку** (образы собираются последовательно):
 ```
-docker build -t cdt_v4.0.0 .
-docker tag cdt_v4.0.0 dicoop/cdt_v4.0.0
-docker push dicoop/cdt_v4.0.0
-docker run --rm --name cdt_v4.0.0 --volume /path-to-your-project:/project -w /project dacomfoundation/cdt_v4.0.4 /bin/bash -c "eosio-cpp -abigen -I include -R include -contract reg -o reg.wasm registrator.cpp"
+   ./install.sh
+```
+
+Проверить, что multi-arch образ создан:
+```
+docker buildx imagetools inspect dicoop/blockchain_v5.1.1:dev
+Запустить контейнер:
 ```
 
 ```
-docker build -t leap_v4.0.4 .
-docker tag leap_v4.0.4 dicoop/leap_v4.0.4
-docker push dicoop/leap_v4.0.4
+docker run --rm dicoop/blockchain_v5.1.1:dev uname -m
 ```
+Если на Intel/AMD → должно вывести x86_64
+Если на Mac M1/M2, Raspberry Pi → должно вывести aarch64
+
+
+## 📌 Поддерживаемые платформы
+Архитектура	Поддерживаемые устройства
+linux/amd64	Intel/AMD (Linux, Windows WSL, macOS Intel)
+linux/arm64	Apple M1/M2, Raspberry Pi 5, ARM-серверы
+
