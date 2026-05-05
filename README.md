@@ -20,14 +20,17 @@
 │   ├── fetch-snapshot.sh    # скачивает snapshot.coopenomics.world
 │   ├── fetch-debs.sh        # скачивает .deb с GitHub Releases coopenomics/coopos
 │   ├── build-deb-image.sh   # собирает coopos-deb:5.1.0 / 5.2.0 из .deb
-│   ├── start.sh             # старт ноды через compose
+│   ├── start.sh             # старт ноды через compose (read-mode = sync с прода)
 │   ├── stop.sh              # стоп
 │   ├── status.sh            # head/version/chain_id через :8888 API
 │   ├── test-compat.sh       # snapshot-compat двух тегов dicoop/blockchain
 │   ├── test-deb-compat.sh   # миграционный тест .deb на одном data dir
-│   └── fork-snapshot.sh     # форк прод-снапшота: to-json → jq-patch → from-json
+│   ├── fork-snapshot.sh     # форк прод-снапшота: to-json → jq-patch → from-json
+│   └── start-fork.sh        # writable fork: подменяет ключ eosio, продьюсит локально
+├── config-fork/
+│   └── config.ini           # конфиг форкнутой ноды (без p2p, with producer + dev-key)
 ├── patches/
-│   └── dev-fork.jq          # шаблон JQ-патча: подмена ключей eosio + producer schedule
+│   └── dev-fork.jq          # JQ-патч: подмена ключа eosio в snapshot
 ├── snapshot.bin             # gitignored
 ├── data/                    # gitignored, файлы создаются root в контейнере
 └── debs/                    # gitignored
@@ -68,25 +71,32 @@ API: `http://127.0.0.1:8888` (HTTP), `9876` (P2P), `8088` → `8080` внутр�
 
 Зелёный результат значит: можно делать `dpkg -i` на проде без двух нод и без replay.
 
-### 3. Локальный fork прод-снапшота (для writable-тестов)
+### 3. Локальный writable-fork прод-снапшота (для тестов с push_transaction)
 
-Прод-снапшот содержит реальные ключи и producer schedule, поэтому локальная нода с ним продьюсить не может — нет приватников. Решение: подменить authority системного аккаунта и schedule на dev-ключ.
+Прод-снапшот содержит реальные ключи; чтобы локальная нода могла продьюсить и принимать write-транзакции, в снапшоте подменяется ключ `eosio@owner|active` (а в coopos он же — единственный активный продьюсер) на dev-ключ:
+- public:  `EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV`
+- private: `5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3`
 
-Требует `leap-util snapshot from-json` (есть начиная с тега `v5.2.0+`). После пересборки .deb:
+Требует `leap-util snapshot from-json` (есть начиная с тега `v5.2.0+`).
 
 ```bash
-./scripts/fetch-snapshot.sh                                   # snapshot.bin с прода
-./scripts/fork-snapshot.sh --patch patches/dev-fork.jq --keep-json
-# на выходе snapshot-fork.bin + промежуточные .json для отладки
-
-./scripts/start.sh --tag 5.2.0 --image coopos-deb --from-snapshot --clean \
-  --extra "--snapshot /root/blockchain/snapshot-fork.bin \
-           --producer-name eosio \
-           --signature-provider EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3 \
-           --enable-stale-production"
+./scripts/start-fork.sh --clean --follow
+# скрипт сам:
+#   - скачает snapshot.bin (если нет)
+#   - применит patches/dev-fork.jq → snapshot-fork.bin
+#   - стартанёт coopos-fork в изоляции от прод-сети
 ```
 
-`patches/dev-fork.jq` — шаблон JQ-патча: меняет authority `eosio@active|owner` и producer schedule на dev-ключ. Перед прогоном с `--keep-json` сохрани и сверь с реальной структурой `snap.json` (имена секций могут отличаться по версиям coopos).
+Внутри происходит: `to-json | jq -f patches/dev-fork.jq | from-json` → `snapshot-fork.bin`. Контейнер `coopos-fork` поднимается с `config-fork/config.ini` (без `p2p-peer-address`, с `producer-name=eosio`, `signature-provider=…=KEY:…`, `enable-stale-production`).
+
+После старта — `head_block_producer: eosio`, блоки растут локально. Для cleos:
+```bash
+cleos wallet create --to-console
+cleos wallet import --private-key 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
+cleos push action eosio updateauth '{...}' -p eosio@active   # будет принято
+```
+
+`fork-snapshot.sh` — отдельный скрипт, можно вызывать самостоятельно, передавая свой JQ-патч через `--patch <file>`.
 
 ### 4. Snapshot-совместимость двух тегов в Docker Hub
 
