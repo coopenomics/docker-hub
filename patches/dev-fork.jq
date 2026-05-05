@@ -1,61 +1,40 @@
-# Подменяет authority eosio@active|owner и producer schedule на dev-ключ,
-# чтобы локальная нода могла продьюсить блоки с известным приватником.
+# Подменяет ключ producer-а eosio на dev-ключ во всех местах снапшота coopos,
+# чтобы локальная нода продолжила цепь, не имея прод-приватника.
 #
-# Dev keypair (Antelope default):
+# Структура секций в снапшоте coopos подтверждена на v5.2.0:
+#   eosio::chain::permission_object   — права аккаунтов (owner|active|...)
+#   eosio::chain::block_state         — head block, active_schedule, signing authority
+#
+# На проде coopos работает в single-producer-mode (active_schedule = только "eosio"),
+# поэтому достаточно подменить ключ "EOS7TjqL5..." на dev-ключ ниже.
+#
+# Dev keypair (Antelope default — известен всем):
 #   public:  EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV
 #   private: 5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3
-#
-# Использование:
-#   ./scripts/fork-snapshot.sh --patch patches/dev-fork.jq --keep-json
-# Перед прогоном на проде — посмотри сгенерённый snap.json, проверь имена
-# секций (они зависят от версии coopos), при необходимости подкрути этот
-# патч под реальную структуру.
 
-# Целевой ключ
-. as $root
-| ($root | "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV") as $DEV_KEY
-| ({key: $DEV_KEY, weight: 1}) as $dev_key_weight
+"EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV" as $DEV_KEY
 
-# 1. Подмена permission_object для системного аккаунта `eosio`.
-#    Ищем все строки в секциях permission_object, у которых owner=="eosio".
-#    Заменяем authority на single-key с порогом 1.
-| (.sections[]?
-    | select(.name | test("permission_object"; "i"))
-    | .rows[]?
-    | select(.data.owner == "eosio" or .data.owner == "0000000000ea3055")
-   ) |= (
-     .data.auth.threshold = 1
-     | .data.auth.keys = [$dev_key_weight]
-     | .data.auth.accounts = []
-     | .data.auth.waits = []
-   )
+# 1. permission_object: для всех permissions аккаунта `eosio` (owner, active, …)
+#    подменяем ключ. Threshold/accounts/waits не трогаем — у eosio их нет.
+| .["eosio::chain::permission_object"].rows |= map(
+    if .owner == "eosio"
+    then .auth.keys |= map(.key = $DEV_KEY)
+    else . end
+  )
 
-# 2. Подмена active producer schedule в global_property_object.
-#    proposed_schedule заменяем на single producer "eosio" с dev_key.
-| (.sections[]?
-    | select(.name | test("global_property"; "i"))
-    | .rows[]?
-   ) |= (
-     .data.proposed_schedule_block_num = 0
-     | .data.proposed_schedule = {
-         version: 0,
-         producers: [
-           { producer_name: "eosio", block_signing_key: $DEV_KEY }
-         ]
-       }
-   )
-
-# 3. Подмена active producer schedule в block_header_state (head block в снапшоте).
-#    schedule.producers — массив, оставляем единственного "eosio" с dev_key.
-| (.sections[]?
-    | select(.name | test("block_state|block_header_state"; "i"))
-    | .rows[]?
-   ) |= (
-     if .data.header_exts == null then . else . end
-     | .data.active_schedule.producers = [
-         { producer_name: "eosio", block_signing_key: $DEV_KEY }
-       ]
-     | .data.pending_schedule.schedule.producers = [
-         { producer_name: "eosio", block_signing_key: $DEV_KEY }
-       ]
-   )
+# 2. block_state: единственная строка содержит head-блок и его подписной authority.
+#    Меняем ключ в трёх местах:
+#      a) active_schedule.producers[*].authority — variant [0, {keys: [...]}]
+#      b) valid_block_signing_authority — тот же variant
+#      c) pending_schedule.schedule.producers — на проде пуст, но если есть — тоже.
+| .["eosio::chain::block_state"].rows |= map(
+    .active_schedule.producers |= map(
+      .authority[1].keys |= map(.key = $DEV_KEY)
+    )
+    | .valid_block_signing_authority[1].keys |= map(.key = $DEV_KEY)
+    | (if .pending_schedule.schedule.producers != null then
+         .pending_schedule.schedule.producers |= map(
+           .authority[1].keys |= map(.key = $DEV_KEY)
+         )
+       else . end)
+  )

@@ -2,5 +2,8 @@
 data/
 snapshot.bin
 snapshot.bin.tmp
+snapshot*.json
+snapshot-fork*
+.fork.*/
 debs/
 config/protocol_features/
