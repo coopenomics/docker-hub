@@ -24,7 +24,10 @@
 │   ├── stop.sh              # стоп
 │   ├── status.sh            # head/version/chain_id через :8888 API
 │   ├── test-compat.sh       # snapshot-compat двух тегов dicoop/blockchain
-│   └── test-deb-compat.sh   # миграционный тест .deb на одном data dir
+│   ├── test-deb-compat.sh   # миграционный тест .deb на одном data dir
+│   └── fork-snapshot.sh     # форк прод-снапшота: to-json → jq-patch → from-json
+├── patches/
+│   └── dev-fork.jq          # шаблон JQ-патча: подмена ключей eosio + producer schedule
 ├── snapshot.bin             # gitignored
 ├── data/                    # gitignored, файлы создаются root в контейнере
 └── debs/                    # gitignored
@@ -65,7 +68,27 @@ API: `http://127.0.0.1:8888` (HTTP), `9876` (P2P), `8088` → `8080` внутр�
 
 Зелёный результат значит: можно делать `dpkg -i` на проде без двух нод и без replay.
 
-### 3. Snapshot-совместимость двух тегов в Docker Hub
+### 3. Локальный fork прод-снапшота (для writable-тестов)
+
+Прод-снапшот содержит реальные ключи и producer schedule, поэтому локальная нода с ним продьюсить не может — нет приватников. Решение: подменить authority системного аккаунта и schedule на dev-ключ.
+
+Требует `leap-util snapshot from-json` (есть начиная с тега `v5.2.0+`). После пересборки .deb:
+
+```bash
+./scripts/fetch-snapshot.sh                                   # snapshot.bin с прода
+./scripts/fork-snapshot.sh --patch patches/dev-fork.jq --keep-json
+# на выходе snapshot-fork.bin + промежуточные .json для отладки
+
+./scripts/start.sh --tag 5.2.0 --image coopos-deb --from-snapshot --clean \
+  --extra "--snapshot /root/blockchain/snapshot-fork.bin \
+           --producer-name eosio \
+           --signature-provider EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3 \
+           --enable-stale-production"
+```
+
+`patches/dev-fork.jq` — шаблон JQ-патча: меняет authority `eosio@active|owner` и producer schedule на dev-ключ. Перед прогоном с `--keep-json` сохрани и сверь с реальной структурой `snap.json` (имена секций могут отличаться по версиям coopos).
+
+### 4. Snapshot-совместимость двух тегов в Docker Hub
 
 ```bash
 ./scripts/test-compat.sh        # OLD_TAG=v5.1.0-dev NEW_TAG=latest
@@ -73,7 +96,7 @@ API: `http://127.0.0.1:8888` (HTTP), `9876` (P2P), `8088` → `8080` внутр�
 
 Тест проверяет, что оба образа из реестра умеют поднять ноду из одного и того же продакшн-снапшота. **Не путать с миграцией** — здесь не проверяется hot-swap data dir между бинарниками.
 
-### 4. Сборка и публикация образа dicoop/blockchain
+### 5. Сборка и публикация образа dicoop/blockchain
 
 ```bash
 COOPOS_SRC=~/coopos CDT_SRC=~/cdt ./install.sh   # собирает + push на Docker Hub
