@@ -4,6 +4,8 @@ snapshot.bin
 snapshot.bin.tmp
 snapshot*.json
 snapshot-fork*
+snapshot-roundtrip*
 .fork.*/
 debs/
 config/protocol_features/
+config-fork/protocol_features/
