@@ -1,0 +1,19 @@
+# Минимальный образ для запуска coopos из готового .deb-пакета.
+# Используется в test-deb-compat.sh для проверки миграции между версиями
+# в той же сборочной среде, в которой стоит продакшн.
+#
+# Сборка:
+#   docker build -f Dockerfile.deb-runner --build-arg DEB=debs/coopos_5.1.0-dev-ubuntu22.04_amd64.deb -t coopos-deb:5.1.0 .
+FROM ubuntu:22.04
+
+ARG DEB
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY ${DEB} /tmp/coopos.deb
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends /tmp/coopos.deb \
+ && rm -f /tmp/coopos.deb \
+ && rm -rf /var/lib/apt/lists/*
+
+CMD ["/usr/local/bin/nodeos", "--config-dir", "/root/blockchain/config", "--data-dir", "/root/blockchain/data"]

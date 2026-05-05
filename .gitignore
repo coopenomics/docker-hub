@@ -1,0 +1,6 @@
+.env
+data/
+snapshot.bin
+snapshot.bin.tmp
+debs/
+config/protocol_features/
